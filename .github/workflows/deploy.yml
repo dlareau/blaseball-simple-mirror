@@ -22,6 +22,4 @@ jobs:
             ghcr.io/${{ github.repository }}:${{ env.BRANCH_NAME }}
             ghcr.io/${{ github.repository }}:${{ github.sha }}
             ghcr.io/${{ github.repository }}:latest
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository 
-}}:${{ env.BRANCH_NAME }}
-          cache-to: type=inline
+
