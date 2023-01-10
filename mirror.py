@@ -21,7 +21,9 @@ def set_auth_var():
     login_payload = {"email": os.environ.get("BB_EMAIL"), "password": os.environ.get("BB_PASSWORD")}
     login_headers = {"content-type": "application/json"}
     print("Making auth request for cookie")
+    print(login_payload, login_headers)
     login_response = requests.post(login_uri, data=json.dumps(login_payload), headers=login_headers)
+    print(login_response)
 
     #Dump to ENV. Note that this may not be persistent depending upon OS/implementation
     os.environ["BB_COOKIES"] = json.dumps(requests.utils.dict_from_cookiejar(login_response.cookies))
@@ -59,4 +61,4 @@ def show_games():
 if __name__ == "__main__":
     set_auth_var()
     get_games()
-    app.run(host='0.0.0.0')
+    app.run(host='0.0.0.0', port=5002)
