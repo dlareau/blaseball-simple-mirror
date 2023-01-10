@@ -47,7 +47,7 @@ def get_games():
 
 
 sched = BackgroundScheduler(daemon=True)
-sched.add_job(get_games,'interval',minutes=1)
+sched.add_job(get_games,'interval',minutes=20)
 sched.start()
 
 app = Flask(__name__)
