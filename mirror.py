@@ -1,6 +1,7 @@
 import requests
 import json
 import os
+import time
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask, jsonify
@@ -47,8 +48,74 @@ def get_games():
     with open('games.json', 'w') as f:
         json.dump(game_data, f)
 
+def get_sim():
+    ''' Get and set global sim data (season, day, etc)'''
+    global season_id
+    global day
+    global sim_data
+    print("Fetching sim")
+    sim_uri = "https://api2.blaseball.com/sim/"
+    sim_response = requests.get(sim_uri, cookies=requests.utils.cookiejar_from_dict(json.loads(os.environ.get("BB_COOKIES"))))
+
+    sim_data = sim_response.json()
+    season_id = sim_data['simData']['currentSeasonId']
+    day = sim_data['simData']['currentDay']
+
+    with open('sim.json', 'w') as f:
+        json.dump(sim_data, f)
+
+def get_teams():
+    global teams_data
+    print("Fetching teams")
+
+    divisions = []
+    for subleague in sim_data['simData']['currentLeagueData']['subLeagues']:
+        divisions.extend(subleague['divisions'])
+
+    teams_uri = f"https://api2.blaseball.com/seasons/{season_id}/days/{day}/teams"
+    teams_response = requests.get(teams_uri, cookies=requests.utils.cookiejar_from_dict(json.loads(os.environ.get("BB_COOKIES"))))
+
+    teams_reponse_data = teams_response.json()
+
+    temp_teams_data = []
+    for division in divisions:
+        division_teams = teams_reponse_data[division['id']]
+        temp_teams_data.extend(division_teams)
+
+    teams_data = temp_teams_data
+
+    with open('teams.json', 'w') as f:
+        json.dump(teams_data, f)
+def get_players():
+    global players_data
+    print("Fetching players")
+
+    delay = 0.1
+    roster_players = []
+    for team in teams_data:
+        roster_players.extend(team['roster'])
+
+    temp_players_data = []
+    for player in roster_players:
+        if len(temp_players_data) % 10 == 0:
+            print(f'{len(temp_players_data)} of {len(roster_players)}...')
+
+        player_uri = f"https://api2.blaseball.com/seasons/{season_id}/days/{day}/players/{player['id']}"
+        player_response = requests.get(player_uri, cookies=requests.utils.cookiejar_from_dict(json.loads(os.environ.get("BB_COOKIES"))))
+
+        player_response_data = player_response.json()
+        temp_players_data.append(player_response_data)
+        time.sleep(delay)
+
+    players_data = temp_players_data
+
+    with open('players.json', 'w') as f:
+        json.dump(players_data, f)
 
 sched = BackgroundScheduler(daemon=True)
+sched.add_job(get_sim,'interval',minutes=20)
+sched.add_job(get_teams,'interval',minutes=20)
+sched.add_job(get_players,'interval',minutes=60)
 sched.add_job(get_games,'interval',minutes=20)
 sched.start()
 
@@ -58,7 +125,18 @@ app = Flask(__name__)
 def show_games():
     return jsonify(game_data)
 
+@app.route("/teams")
+def show_teams():
+    return jsonify(teams_data)
+
+@app.route("/players")
+def show_players():
+    return jsonify(players_data)
+
 if __name__ == "__main__":
     set_auth_var()
+    get_sim()
+    get_teams()
+    get_players()
     get_games()
     app.run(host='0.0.0.0', port=5000)

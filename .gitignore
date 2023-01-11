@@ -1,5 +1,8 @@
 # Custom things
 games.json
+sim.json
+teams.json
+players.json
 bb_cookies.txt
 
 
@@ -132,3 +135,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# PyCharm
+.idea/
