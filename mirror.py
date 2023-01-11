@@ -96,7 +96,7 @@ def get_players():
         roster_players.extend(team['roster'])
 
     temp_players_data = []
-    for player in roster_players[:100]:
+    for player in roster_players:
         if len(temp_players_data) % 10 == 0:
             print(f'{len(temp_players_data)} of {len(roster_players)}...')
 
