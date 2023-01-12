@@ -7,7 +7,12 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask, jsonify
 from flask_cors import CORS
 
-game_data = {}
+sim_data = None
+season_id = None
+day = None
+teams_data = None
+players_data = None
+game_data = None
 
 def set_auth_var():
     if "BB_COOKIES" in os.environ:
@@ -33,6 +38,43 @@ def set_auth_var():
     #Dump to FILE.
     with open('bb_cookies.txt', 'w') as f:
         json.dump(requests.utils.dict_from_cookiejar(login_response.cookies), f)
+
+def initial_data():
+    global sim_data
+    global season_id
+    global day
+    if os.path.exists('games.json'):
+        print("Loading sim_data from file")
+        with open('sim.json', 'r') as f:
+            sim_data = json.load(f)
+        season_id = sim_data['simData']['currentSeasonId']
+        day = sim_data['simData']['currentDay']
+    else:
+        get_sim()
+
+    global game_data
+    if os.path.exists('games.json'):
+        print("Loading games_data from file")
+        with open('games.json', 'r') as f:
+            game_data = json.load(f)
+    else:
+        get_games()
+
+    global teams_data
+    if os.path.exists('teams.json'):
+        print("Loading teams_data from file")
+        with open('teams.json', 'r') as f:
+            teams_data = json.load(f)
+    else:
+        get_teams()
+
+    global players_data
+    if os.path.exists('players.json'):
+        print("Loading players_data from file")
+        with open('players.json', 'r') as f:
+            players_data = json.load(f)
+    else:
+        get_players()
 
 
 def get_games():
@@ -134,11 +176,12 @@ def show_teams():
 def show_players():
     return jsonify(players_data)
 
+@app.route("/sim")
+def show_sim():
+    return jsonify(sim_data)
+
 if __name__ == "__main__":
     set_auth_var()
-    get_sim()
-    get_teams()
-    get_players()
-    get_games()
+    initial_data()
     CORS(app)
     app.run(host='0.0.0.0', port=5000)
