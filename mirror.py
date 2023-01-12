@@ -47,7 +47,7 @@ def initial_data():
     global sim_data
     global season_id
     global day
-    if os.path.exists('games.json'):
+    if os.path.exists('sim.json'):
         print("Loading sim_data from file")
         with open('sim.json', 'r') as f:
             sim_data = json.load(f)
