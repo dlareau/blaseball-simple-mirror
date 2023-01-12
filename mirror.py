@@ -42,7 +42,7 @@ def get_games():
     global game_data
     print("Fetching games")
 
-    games_uri = "https://api2.blaseball.com/seasons/cd1b6714-f4de-4dfc-a030-851b3459d8d1x/games"
+    games_uri = "https://api2.blaseball.com/seasons/cd1b6714-f4de-4dfc-a030-851b3459d8d1/games"
     for _ in range(REQUEST_RETRIES):
         games_response = requests.get(games_uri, cookies=requests.utils.cookiejar_from_dict(json.loads(os.environ.get("BB_COOKIES"))))
         if games_response.status_code == 500:
