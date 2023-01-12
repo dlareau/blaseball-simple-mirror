@@ -5,6 +5,7 @@ import time
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask, jsonify
+from flask_cors import CORS
 
 game_data = {}
 
@@ -139,4 +140,5 @@ if __name__ == "__main__":
     get_teams()
     get_players()
     get_games()
+    CORS(app)
     app.run(host='0.0.0.0', port=5000)
