@@ -18,13 +18,16 @@ teams_data = None
 players_data = None
 game_data = None
 
+
 def set_auth_var():
+    if not os.path.exists("data"):
+        os.makedirs("data")
     if "BB_COOKIES" in os.environ:
         print("cookie already in env var")
         return
-    if os.path.exists("bb_cookies.txt"):
+    if os.path.exists("data/bb_cookies.txt"):
         print("Loading cookie from file")
-        with open('bb_cookies.txt', 'r') as f:
+        with open('data/bb_cookies.txt', 'r') as f:
             os.environ["BB_COOKIES"] = json.dumps(json.load(f))
         return
 
@@ -40,16 +43,16 @@ def set_auth_var():
     os.environ["BB_COOKIES"] = json.dumps(requests.utils.dict_from_cookiejar(login_response.cookies))
 
     #Dump to FILE.
-    with open('bb_cookies.txt', 'w') as f:
+    with open('data/bb_cookies.txt', 'w') as f:
         json.dump(requests.utils.dict_from_cookiejar(login_response.cookies), f)
 
 def initial_data():
     global sim_data
     global season_id
     global day
-    if os.path.exists('sim.json'):
+    if os.path.exists('data/sim.json'):
         print("Loading sim_data from file")
-        with open('sim.json', 'r') as f:
+        with open('data/sim.json', 'r') as f:
             sim_data = json.load(f)
         season_id = sim_data['simData']['currentSeasonId']
         day = sim_data['simData']['currentDay']
@@ -57,51 +60,53 @@ def initial_data():
         get_sim()
 
     global game_data
-    if os.path.exists('games.json'):
+    if os.path.exists('data/games.json'):
         print("Loading games_data from file")
-        with open('games.json', 'r') as f:
+        with open('data/games.json', 'r') as f:
             game_data = json.load(f)
     else:
         get_games()
 
     global teams_data
-    if os.path.exists('teams.json'):
+    if os.path.exists('data/teams.json'):
         print("Loading teams_data from file")
-        with open('teams.json', 'r') as f:
+        with open('data/teams.json', 'r') as f:
             teams_data = json.load(f)
     else:
         get_teams()
 
     global players_data
-    if os.path.exists('players.json'):
+    if os.path.exists('data/players.json'):
         print("Loading players_data from file")
-        with open('players.json', 'r') as f:
+        with open('data/players.json', 'r') as f:
             players_data = json.load(f)
     else:
         get_players()
 
 
+def request_with_retry(url):
+    for _ in range(REQUEST_RETRIES):
+        response = requests.get(url, cookies=requests.utils.cookiejar_from_dict(json.loads(os.environ.get("BB_COOKIES"))))
+        if response.status_code == 500:
+            print(f"request to {url} failed - retrying")
+            time.sleep(REQUEST_RETRY_DELAY)
+        else:
+            return response.json()
+
+    else:
+        print(f"request to {url} failed all retries - Not updating")
+
 def get_games():
     global game_data
     print("Fetching games")
 
-    games_uri = "https://api2.blaseball.com/seasons/cd1b6714-f4de-4dfc-a030-851b3459d8d1/games"
-    for _ in range(REQUEST_RETRIES):
-        games_response = requests.get(games_uri, cookies=requests.utils.cookiejar_from_dict(json.loads(os.environ.get("BB_COOKIES"))))
-        if games_response.status_code == 500:
-            print("Games request failed - retrying")
-            time.sleep(REQUEST_RETRY_DELAY)
-        else:
-            game_data = games_response.json()
+    game_data = request_with_retry("https://api2.blaseball.com/seasons/cd1b6714-f4de-4dfc-a030-851b3459d8d1/games")
+    for game in game_data:
+        del game["gameEventBatches"]
 
-            for game in game_data:
-                del game["gameEventBatches"]
+    with open('data/games.json', 'w') as f:
+        json.dump(game_data, f)
 
-            with open('games.json', 'w') as f:
-                json.dump(game_data, f)
-            break
-    else:
-        print("Games request failed all retries - Not updating")
 
 def get_sim():
     ''' Get and set global sim data (season, day, etc)'''
@@ -109,22 +114,13 @@ def get_sim():
     global day
     global sim_data
     print("Fetching sim")
-    sim_uri = "https://api2.blaseball.com/sim/"
-    for _ in range(REQUEST_RETRIES):
-        sim_response = requests.get(sim_uri, cookies=requests.utils.cookiejar_from_dict(json.loads(os.environ.get("BB_COOKIES"))))
-        if sim_response.status_code == 500:
-            print("Sim request failed - retrying")
-            time.sleep(REQUEST_RETRY_DELAY)
-        else:
-            sim_data = sim_response.json()
-            season_id = sim_data['simData']['currentSeasonId']
-            day = sim_data['simData']['currentDay']
 
-            with open('sim.json', 'w') as f:
-                json.dump(sim_data, f)
-            break
-    else:
-        print("Sim request failed all retries - Not updating")
+    sim_data = request_with_retry("https://api2.blaseball.com/sim/")
+    season_id = sim_data['simData']['currentSeasonId']
+    day = sim_data['simData']['currentDay']
+
+    with open('data/sim.json', 'w') as f:
+        json.dump(sim_data, f)
 
 def get_teams():
     global teams_data
@@ -134,29 +130,17 @@ def get_teams():
     for subleague in sim_data['simData']['currentLeagueData']['subLeagues']:
         divisions.extend(subleague['divisions'])
 
-    teams_uri = f"https://api2.blaseball.com/seasons/{season_id}/days/{day}/teams"
-    # There has to be a better way than this
-    for _ in range(REQUEST_RETRIES):
-        teams_response = requests.get(teams_uri, cookies=requests.utils.cookiejar_from_dict(json.loads(os.environ.get("BB_COOKIES"))))
-        if teams_response.status_code == 500:
-            print(f"Teams request failed - retrying")
-            time.sleep(REQUEST_RETRY_DELAY)
-        else:
-            teams_response_data = teams_response.json()
-            temp_teams_data = []
+    teams_response_data = request_with_retry(f"https://api2.blaseball.com/seasons/{season_id}/days/{day}/teams")
+    temp_teams_data = []
 
-            for division in divisions:
-                division_teams = teams_response_data[division['id']]
-                temp_teams_data.extend(division_teams)
+    for division in divisions:
+        division_teams = teams_response_data[division['id']]
+        temp_teams_data.extend(division_teams)
 
-            teams_data = temp_teams_data
+    teams_data = temp_teams_data
 
-            with open('teams.json', 'w') as f:
-                json.dump(teams_data, f)
-            break
-    else:
-        print("Teams request failed all retries - not updating")
-    # If the retries fail, teams_data just doesn't get updated
+    with open('data/teams.json', 'w') as f:
+        json.dump(teams_data, f)
 
 def get_players():
     global players_data
@@ -173,22 +157,12 @@ def get_players():
 
         player_uri = f"https://api2.blaseball.com/seasons/{season_id}/days/{day}/players/{player['id']}"
 
-        # There's probably a better way to do this
-        for _ in range(REQUEST_RETRIES):
-            player_response = requests.get(player_uri, cookies=requests.utils.cookiejar_from_dict(json.loads(os.environ.get("BB_COOKIES"))))
-            if player_response.status_code == 500:
-                print(f"{player['id']} Player request failed - retrying")
-                time.sleep(REQUEST_RETRY_DELAY)
-            else:
-                player_response_data = player_response.json()
-                temp_players_data.append(player_response_data)
-                break
-        # If it doesn't get a good response, don't add player to temp_player_data
-        time.sleep(REQUEST_DELAY)
+        player_response_data = request_with_retry(player_uri)
+        temp_players_data.append(player_response_data)
 
     players_data = temp_players_data
 
-    with open('players.json', 'w') as f:
+    with open('data/players.json', 'w') as f:
         json.dump(players_data, f)
 
 sched = BackgroundScheduler(daemon=True)
@@ -202,19 +176,27 @@ app = Flask(__name__)
 
 @app.route("/games")
 def show_games():
-    return jsonify(game_data)
+    response = jsonify(game_data)
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
 
 @app.route("/teams")
 def show_teams():
-    return jsonify(teams_data)
+    response = jsonify(teams_data)
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
 
 @app.route("/players")
 def show_players():
-    return jsonify(players_data)
+    response = jsonify(players_data)
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
 
 @app.route("/sim")
 def show_sim():
-    return jsonify(sim_data)
+    response = jsonify(sim_data)
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
 
 if __name__ == "__main__":
     set_auth_var()
