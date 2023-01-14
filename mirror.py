@@ -119,7 +119,7 @@ def get_sim():
     print("Fetching sim")
 
     new_data = request_with_retry("https://api2.blaseball.com/sim/")
-    if new data is not None:
+    if new_data is not None:
         sim_data = new_data
     season_id = sim_data['simData']['currentSeasonId']
     day = sim_data['simData']['currentDay']
