@@ -95,12 +95,15 @@ def request_with_retry(url):
 
     else:
         print(f"request to {url} failed all retries - Not updating")
+        return None
 
 def get_games():
     global game_data
     print("Fetching games")
 
-    game_data = request_with_retry("https://api2.blaseball.com/seasons/cd1b6714-f4de-4dfc-a030-851b3459d8d1/games")
+    new_data = request_with_retry("https://api2.blaseball.com/seasons/cd1b6714-f4de-4dfc-a030-851b3459d8d1/games")
+    if new_data is not None:
+        game_data = new_data
     for game in game_data:
         del game["gameEventBatches"]
 
@@ -115,7 +118,9 @@ def get_sim():
     global sim_data
     print("Fetching sim")
 
-    sim_data = request_with_retry("https://api2.blaseball.com/sim/")
+    new_data = request_with_retry("https://api2.blaseball.com/sim/")
+    if new data is not None:
+        sim_data = new_data
     season_id = sim_data['simData']['currentSeasonId']
     day = sim_data['simData']['currentDay']
 
@@ -131,13 +136,14 @@ def get_teams():
         divisions.extend(subleague['divisions'])
 
     teams_response_data = request_with_retry(f"https://api2.blaseball.com/seasons/{season_id}/days/{day}/teams")
-    temp_teams_data = []
+    if(teams_response_data is not None):
+        temp_teams_data = []
 
-    for division in divisions:
-        division_teams = teams_response_data[division['id']]
-        temp_teams_data.extend(division_teams)
+        for division in divisions:
+            division_teams = teams_response_data[division['id']]
+            temp_teams_data.extend(division_teams)
 
-    teams_data = temp_teams_data
+        teams_data = temp_teams_data
 
     with open('data/teams.json', 'w') as f:
         json.dump(teams_data, f)
