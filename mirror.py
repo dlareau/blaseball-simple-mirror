@@ -97,20 +97,6 @@ def request_with_retry(url):
         print(f"request to {url} failed all retries - Not updating")
         return None
 
-def get_games():
-    global game_data
-    print("Fetching games")
-
-    new_data = request_with_retry("https://api2.blaseball.com/seasons/cd1b6714-f4de-4dfc-a030-851b3459d8d1/games")
-    if new_data is not None:
-        game_data = new_data
-    for game in game_data:
-        del game["gameEventBatches"]
-
-    with open('data/games.json', 'w') as f:
-        json.dump(game_data, f)
-
-
 def get_sim():
     ''' Get and set global sim data (season, day, etc)'''
     global season_id
@@ -126,6 +112,20 @@ def get_sim():
 
     with open('data/sim.json', 'w') as f:
         json.dump(sim_data, f)
+
+def get_games():
+    global game_data
+    print("Fetching games")
+
+    new_data = request_with_retry(f"https://api2.blaseball.com/seasons/{season_id}/games")
+    if new_data is not None:
+        game_data = new_data
+    for game in game_data:
+        del game["gameEventBatches"]
+
+    with open('data/games.json', 'w') as f:
+        json.dump(game_data, f)
+
 
 def get_teams():
     global teams_data
